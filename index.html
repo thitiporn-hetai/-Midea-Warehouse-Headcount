@@ -148,10 +148,6 @@
                         <i class="fa-solid fa-file-excel"></i>
                         <span>Export CSV</span>
                     </button>
-                    <button onclick="clearAllData()" class="bg-red-100 hover:bg-red-200 text-red-600 px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-1">
-                        <i class="fa-solid fa-trash-can"></i>
-                        <span>ล้างข้อมูลทั้งหมด</span>
-                    </button>
                 </div>
             </div>
 
@@ -248,7 +244,6 @@
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('reportDate').value = today;
             
-            // ตั้งค่าเริ่มต้นช่องกรองช่วงวันที่ (ให้เป็นวันปัจจุบันทั้งคู่ หรือเคลียร์เพื่อดูทั้งหมดก็ได้)
             document.getElementById('filterStartDate').value = today;
             document.getElementById('filterEndDate').value = today;
             
@@ -390,17 +385,6 @@
             }
         }
 
-        window.clearAllData = function() {
-            if (confirm("⚠️ คำเตือน: คุณต้องการลบประวัติรายงานทั้งหมดใช่หรือไม่?")) {
-                const reportsRef = ref(db, 'warehouse_reports');
-                remove(reportsRef).then(() => {
-                    showToast("ล้างข้อมูลทั้งหมดเรียบร้อย", "success");
-                }).catch((error) => {
-                    alert("ล้างข้อมูลไม่สำเร็จ: " + error.message);
-                });
-            }
-        }
-
         window.resetDateFilter = function() {
             document.getElementById('filterStartDate').value = '';
             document.getElementById('filterEndDate').value = '';
@@ -416,7 +400,6 @@
                 ...reportsData[key]
             })).reverse();
 
-            // กรองตามช่วงวันที่ (Start Date ถึง End Date)
             const filteredReports = reportsArray.filter(r => {
                 if (startDate && r.date < startDate) return false;
                 if (endDate && r.date > endDate) return false;

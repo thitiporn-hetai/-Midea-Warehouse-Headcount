@@ -221,7 +221,7 @@
         const firebaseConfig = {
             apiKey: "AIzaSyAEB9dPC6CR_lu9yRpzfFddT801WV8rEyI",
             authDomain: "warehouse-headcount.firebaseapp.com",
-            databaseURL: "https://warehouse-headcount-default-rtdb.firebaseio.com",
+            databaseURL: "https://warehouse-headcount-default-rtdb.asia-southeast1.firebasedatabase.app",
             projectId: "warehouse-headcount",
             storageBucket: "warehouse-headcount.firebasestorage.app",
             messagingSenderId: "577829401554",
@@ -251,6 +251,8 @@
                 const data = snapshot.val();
                 reportsData = data || {};
                 renderAdminDashboard();
+            }, (error) => {
+                console.error("Firebase Read Error:", error);
             });
         };
 
@@ -300,14 +302,14 @@
             };
 
             if (editKey) {
-                // อัปเดตข้อมูลเดิมใน Firebase
                 const reportRef = ref(db, 'warehouse_reports/' + editKey);
                 update(reportRef, reportData).then(() => {
                     showToast("อัปเดตข้อมูลสำเร็จ!", "success");
                     cancelEdit();
+                }).catch((error) => {
+                    alert("เกิดข้อผิดพลาดในการอัปเดต: " + error.message);
                 });
             } else {
-                // เพิ่มรายการใหม่เข้า Firebase
                 const reportsRef = ref(db, 'warehouse_reports');
                 const newReportRef = push(reportsRef);
                 set(newReportRef, reportData).then(() => {
@@ -318,6 +320,8 @@
                     document.getElementById('reportDate').value = today;
                     const now = new Date();
                     document.getElementById('reportTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+                }).catch((error) => {
+                    alert("เกิดข้อผิดพลาดในการส่งข้อมูล: " + error.message);
                 });
             }
         }
@@ -369,6 +373,8 @@
                 const reportRef = ref(db, 'warehouse_reports/' + key);
                 remove(reportRef).then(() => {
                     showToast("ลบรายงานเรียบร้อยแล้ว", "success");
+                }).catch((error) => {
+                    alert("ลบไม่สำเร็จ: " + error.message);
                 });
             }
         }
@@ -378,6 +384,8 @@
                 const reportsRef = ref(db, 'warehouse_reports');
                 remove(reportsRef).then(() => {
                     showToast("ล้างข้อมูลทั้งหมดเรียบร้อย", "success");
+                }).catch((error) => {
+                    alert("ล้างข้อมูลไม่สำเร็จ: " + error.message);
                 });
             }
         }
@@ -385,11 +393,10 @@
         function renderAdminDashboard() {
             const filterDate = document.getElementById('filterDate').value;
             
-            // แปลง Object จาก Firebase ให้เป็น Array พร้อมแนบ key
             const reportsArray = Object.keys(reportsData).map(key => ({
                 key: key,
                 ...reportsData[key]
-            })).reverse(); // เรียงจากล่าสุดไปเก่า
+            })).reverse();
 
             const filteredReports = filterDate ? reportsArray.filter(r => r.date === filterDate) : reportsArray;
 

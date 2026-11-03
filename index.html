@@ -54,7 +54,7 @@
             </div>
 
             <form id="attendanceForm" onsubmit="submitReport(event)" class="space-y-5">
-                <input type="hidden" id="editReportId" value="">
+                <input type="hidden" id="editReportKey" value="">
 
                 <!-- ผู้รายงาน -->
                 <div>
@@ -213,9 +213,26 @@
         <span id="toastMessage" class="text-sm font-medium">บันทึกข้อมูลเรียบร้อยแล้ว</span>
     </div>
 
-    <!-- JavaScript Logic -->
-    <script>
-        let reports = JSON.parse(localStorage.getItem('warehouse_reports')) || [];
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAEB9dPC6CR_lu9yRpzfFddT801WV8rEyI",
+            authDomain: "warehouse-headcount.firebaseapp.com",
+            databaseURL: "https://warehouse-headcount-default-rtdb.firebaseio.com",
+            projectId: "warehouse-headcount",
+            storageBucket: "warehouse-headcount.firebasestorage.app",
+            messagingSenderId: "577829401554",
+            appId: "1:577829401554:web:d99bf9a17b52cf8ab30e0b",
+            measurementId: "G-DFPXFF65M5"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let reportsData = {};
         const warehousesList = ["Lotus Finished", "Lotus OEM", "345", "TPT"];
 
         window.onload = function() {
@@ -228,10 +245,16 @@
             document.getElementById('reportTime').value = timeString;
             document.getElementById('currentLiveTime').innerText = `เวลาปัจจุบัน: ${timeString} น.`;
 
-            renderAdminDashboard();
+            // ดึงข้อมูลและฟังชันก์ Realtime จาก Firebase
+            const reportsRef = ref(db, 'warehouse_reports');
+            onValue(reportsRef, (snapshot) => {
+                const data = snapshot.val();
+                reportsData = data || {};
+                renderAdminDashboard();
+            });
         };
 
-        function switchView(view) {
+        window.switchView = function(view) {
             const staffView = document.getElementById('staffView');
             const adminView = document.getElementById('adminView');
             const btnStaff = document.getElementById('btnStaff');
@@ -251,7 +274,7 @@
             }
         }
 
-        function calculateTotal() {
+        window.calculateTotal = function() {
             const req = parseInt(document.getElementById('reqCount').value) || 0;
             const show = parseInt(document.getElementById('showCount').value) || 0;
             const diff = show - req;
@@ -259,63 +282,53 @@
             totalField.value = diff >= 0 ? `+${diff}` : `${diff}`;
         }
 
-        function submitReport(e) {
+        window.submitReport = function(e) {
             e.preventDefault();
-            const editId = document.getElementById('editReportId').value;
-            
+            const editKey = document.getElementById('editReportKey').value;
             const reqVal = parseInt(document.getElementById('reqCount').value) || 0;
             const showVal = parseInt(document.getElementById('showCount').value) || 0;
 
-            if (editId) {
-                const index = reports.findIndex(r => r.id == editId);
-                if (index !== -1) {
-                    reports[index] = {
-                        id: Number(editId),
-                        reporter: document.getElementById('reporterName').value,
-                        warehouse: document.getElementById('warehouseSelect').value,
-                        date: document.getElementById('reportDate').value,
-                        time: document.getElementById('reportTime').value,
-                        req: reqVal,
-                        show: showVal,
-                        total: showVal - reqVal,
-                        remark: document.getElementById('remarkText').value || '-'
-                    };
-                    showToast("อัปเดตข้อมูลสำเร็จ!", "success");
-                }
-                cancelEdit();
-            } else {
-                const newReport = {
-                    id: Date.now(),
-                    reporter: document.getElementById('reporterName').value,
-                    warehouse: document.getElementById('warehouseSelect').value,
-                    date: document.getElementById('reportDate').value,
-                    time: document.getElementById('reportTime').value,
-                    req: reqVal,
-                    show: showVal,
-                    total: showVal - reqVal,
-                    remark: document.getElementById('remarkText').value || '-'
-                };
-                reports.unshift(newReport);
-                showToast("ส่งรายงานกำลังพลสำเร็จ!", "success");
-                document.getElementById('attendanceForm').reset();
-                
-                const today = new Date().toISOString().split('T')[0];
-                document.getElementById('reportDate').value = today;
-                const now = new Date();
-                document.getElementById('reportTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
-            }
+            const reportData = {
+                reporter: document.getElementById('reporterName').value,
+                warehouse: document.getElementById('warehouseSelect').value,
+                date: document.getElementById('reportDate').value,
+                time: document.getElementById('reportTime').value,
+                req: reqVal,
+                show: showVal,
+                total: showVal - reqVal,
+                remark: document.getElementById('remarkText').value || '-'
+            };
 
-            localStorage.setItem('warehouse_reports', JSON.stringify(reports));
-            calculateTotal();
+            if (editKey) {
+                // อัปเดตข้อมูลเดิมใน Firebase
+                const reportRef = ref(db, 'warehouse_reports/' + editKey);
+                update(reportRef, reportData).then(() => {
+                    showToast("อัปเดตข้อมูลสำเร็จ!", "success");
+                    cancelEdit();
+                });
+            } else {
+                // เพิ่มรายการใหม่เข้า Firebase
+                const reportsRef = ref(db, 'warehouse_reports');
+                const newReportRef = push(reportsRef);
+                set(newReportRef, reportData).then(() => {
+                    showToast("ส่งรายงานกำลังพลสำเร็จ!", "success");
+                    document.getElementById('attendanceForm').reset();
+                    
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('reportDate').value = today;
+                    const now = new Date();
+                    document.getElementById('reportTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+                });
+            }
         }
 
-        function editReport(id) {
-            const report = reports.find(r => r.id == id);
+        window.editReport = function(key) {
+            const report = reportsData[key];
             if (!report) return;
 
             switchView('staff');
 
-            document.getElementById('editReportId').value = report.id;
+            document.getElementById('editReportKey').value = key;
             document.getElementById('reporterName').value = report.reporter;
             document.getElementById('warehouseSelect').value = report.warehouse;
             document.getElementById('reportDate').value = report.date;
@@ -335,9 +348,9 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function cancelEdit() {
+        window.cancelEdit = function() {
             document.getElementById('attendanceForm').reset();
-            document.getElementById('editReportId').value = '';
+            document.getElementById('editReportKey').value = '';
             document.getElementById('formTitle').innerText = "ฟอร์มส่งรายงานกำลังพล";
             document.getElementById('formSubtitle').innerText = "กรอกข้อมูลประจำวันสำหรับคลังสินค้า";
             document.getElementById('editBadge').classList.add('hidden');
@@ -351,34 +364,41 @@
             document.getElementById('reportTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
         }
 
-        function deleteReport(id) {
+        window.deleteReport = function(key) {
             if (confirm("คุณต้องการลบรายงานนี้ใช่หรือไม่?")) {
-                reports = reports.filter(r => r.id !== id);
-                localStorage.setItem('warehouse_reports', JSON.stringify(reports));
-                renderAdminDashboard();
-                showToast("ลบรายงานเรียบร้อยแล้ว", "success");
+                const reportRef = ref(db, 'warehouse_reports/' + key);
+                remove(reportRef).then(() => {
+                    showToast("ลบรายงานเรียบร้อยแล้ว", "success");
+                });
             }
         }
 
-        function clearAllData() {
+        window.clearAllData = function() {
             if (confirm("⚠️ คำเตือน: คุณต้องการลบประวัติรายงานทั้งหมดใช่หรือไม่?")) {
-                reports = [];
-                localStorage.removeItem('warehouse_reports');
-                renderAdminDashboard();
-                showToast("ล้างข้อมูลทั้งหมดเรียบร้อย", "success");
+                const reportsRef = ref(db, 'warehouse_reports');
+                remove(reportsRef).then(() => {
+                    showToast("ล้างข้อมูลทั้งหมดเรียบร้อย", "success");
+                });
             }
         }
 
         function renderAdminDashboard() {
             const filterDate = document.getElementById('filterDate').value;
-            const filteredReports = filterDate ? reports.filter(r => r.date === filterDate) : reports;
+            
+            // แปลง Object จาก Firebase ให้เป็น Array พร้อมแนบ key
+            const reportsArray = Object.keys(reportsData).map(key => ({
+                key: key,
+                ...reportsData[key]
+            })).reverse(); // เรียงจากล่าสุดไปเก่า
+
+            const filteredReports = filterDate ? reportsArray.filter(r => r.date === filterDate) : reportsArray;
 
             let totalReq = 0;
             let totalShow = 0;
 
             filteredReports.forEach(r => {
-                totalReq += r.req;
-                totalShow += r.show;
+                totalReq += Number(r.req) || 0;
+                totalShow += Number(r.show) || 0;
             });
 
             const percentage = totalReq > 0 ? ((totalShow / totalReq) * 100).toFixed(1) : 0;
@@ -431,8 +451,9 @@
             }
 
             filteredReports.forEach(r => {
-                const totalFormatted = r.total >= 0 ? `+${r.total}` : `${r.total}`;
-                const totalColor = r.total >= 0 ? 'text-green-600' : 'text-red-500';
+                const totalVal = Number(r.total) || (Number(r.show) - Number(r.req));
+                const totalFormatted = totalVal >= 0 ? `+${totalVal}` : `${totalVal}`;
+                const totalColor = totalVal >= 0 ? 'text-green-600' : 'text-red-500';
 
                 tbody.innerHTML += `
                     <tr class="hover:bg-gray-50 transition">
@@ -444,17 +465,21 @@
                         <td class="p-3 text-center font-bold ${totalColor}">${totalFormatted}</td>
                         <td class="p-3 text-gray-500 text-xs max-w-xs truncate">${r.remark}</td>
                         <td class="p-3 text-center space-x-2">
-                            <button onclick="editReport(${r.id})" class="text-blue-400 hover:text-blue-600 p-1 transition" title="แก้ไข"><i class="fa-solid fa-pen-to-square"></i></button>
-                            <button onclick="deleteReport(${r.id})" class="text-red-400 hover:text-red-600 p-1 transition" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+                            <button onclick="editReport('${r.key}')" class="text-blue-400 hover:text-blue-600 p-1 transition" title="แก้ไข"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteReport('${r.key}')" class="text-red-400 hover:text-red-600 p-1 transition" title="ลบ"><i class="fa-solid fa-trash"></i></button>
                         </td>
                     </tr>
                 `;
             });
         }
 
-        function exportToCSV() {
+        window.exportToCSV = function() {
+            const filterDate = document.getElementById('filterDate').value;
+            const reportsArray = Object.keys(reportsData).map(key => ({ key: key, ...reportsData[key] }));
+            const filteredReports = filterDate ? reportsArray.filter(r => r.date === filterDate) : reportsArray;
+
             let csv = '\uFEFFเวลา,วันที่,คลังสินค้า,ผู้รายงาน,Request,Showup,Total,หมายเหตุ\n';
-            reports.forEach(r => {
+            filteredReports.forEach(r => {
                 csv += `"${r.time}","${r.date}","${r.warehouse}","${r.reporter}",${r.req},${r.show},${r.total},"${r.remark}"\n`;
             });
 

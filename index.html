@@ -128,13 +128,22 @@
 
         <!-- ================= ADMIN DASHBOARD ================= -->
         <section id="adminView" class="hidden space-y-6">
-            <!-- Filter & Controls -->
-            <div class="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row justify-between items-center gap-4">
-                <div class="flex items-center space-x-2 w-full md:w-auto">
-                    <label class="text-sm font-medium text-gray-600">กรองวันที่:</label>
-                    <input type="date" id="filterDate" onchange="renderAdminDashboard()" class="px-3 py-1.5 border rounded-lg text-sm">
+            <!-- Filter & Controls (Date Range) -->
+            <div class="bg-white p-4 rounded-xl shadow flex flex-col lg:flex-row justify-between items-center gap-4">
+                <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                    <div class="flex items-center space-x-2">
+                        <label class="text-sm font-medium text-gray-600">จากวันที่:</label>
+                        <input type="date" id="filterStartDate" onchange="renderAdminDashboard()" class="px-3 py-1.5 border rounded-lg text-sm">
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <label class="text-sm font-medium text-gray-600">ถึงวันที่:</label>
+                        <input type="date" id="filterEndDate" onchange="renderAdminDashboard()" class="px-3 py-1.5 border rounded-lg text-sm">
+                    </div>
+                    <button onclick="resetDateFilter()" class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-medium transition">
+                        <i class="fa-solid fa-rotate-right mr-1"></i> ดูทั้งหมด
+                    </button>
                 </div>
-                <div class="flex space-x-3 w-full md:w-auto justify-end">
+                <div class="flex space-x-3 w-full lg:w-auto justify-end">
                     <button onclick="exportToCSV()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-1 shadow">
                         <i class="fa-solid fa-file-excel"></i>
                         <span>Export CSV</span>
@@ -238,14 +247,16 @@
         window.onload = function() {
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('reportDate').value = today;
-            document.getElementById('filterDate').value = today;
+            
+            // ตั้งค่าเริ่มต้นช่องกรองช่วงวันที่ (ให้เป็นวันปัจจุบันทั้งคู่ หรือเคลียร์เพื่อดูทั้งหมดก็ได้)
+            document.getElementById('filterStartDate').value = today;
+            document.getElementById('filterEndDate').value = today;
             
             const now = new Date();
             const timeString = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
             document.getElementById('reportTime').value = timeString;
             document.getElementById('currentLiveTime').innerText = `เวลาปัจจุบัน: ${timeString} น.`;
 
-            // ดึงข้อมูลและฟังชันก์ Realtime จาก Firebase
             const reportsRef = ref(db, 'warehouse_reports');
             onValue(reportsRef, (snapshot) => {
                 const data = snapshot.val();
@@ -390,15 +401,27 @@
             }
         }
 
+        window.resetDateFilter = function() {
+            document.getElementById('filterStartDate').value = '';
+            document.getElementById('filterEndDate').value = '';
+            renderAdminDashboard();
+        }
+
         function renderAdminDashboard() {
-            const filterDate = document.getElementById('filterDate').value;
+            const startDate = document.getElementById('filterStartDate').value;
+            const endDate = document.getElementById('filterEndDate').value;
             
             const reportsArray = Object.keys(reportsData).map(key => ({
                 key: key,
                 ...reportsData[key]
             })).reverse();
 
-            const filteredReports = filterDate ? reportsArray.filter(r => r.date === filterDate) : reportsArray;
+            // กรองตามช่วงวันที่ (Start Date ถึง End Date)
+            const filteredReports = reportsArray.filter(r => {
+                if (startDate && r.date < startDate) return false;
+                if (endDate && r.date > endDate) return false;
+                return true;
+            });
 
             let totalReq = 0;
             let totalShow = 0;
@@ -420,7 +443,7 @@
 
             warehousesList.forEach(wh => {
                 const whReports = filteredReports.filter(r => r.warehouse === wh);
-                const latest = whReports.length > 0 ? whReports[0] : { req: 0, show: 0, total: 0, time: 'ยังไม่มีข้อมูล', remark: '-' };
+                const latest = whReports.length > 0 ? whReports[0] : { req: 0, show: 0, total: 0, time: 'ยังไม่มีข้อมูล', date: '', remark: '-' };
                 const whPercentage = latest.req > 0 ? ((latest.show / latest.req) * 100).toFixed(0) : 0;
 
                 container.innerHTML += `
@@ -428,7 +451,7 @@
                         <div>
                             <div class="flex justify-between items-center mb-2">
                                 <h4 class="font-bold text-gray-800 text-base">${wh}</h4>
-                                <span class="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded font-semibold">${latest.time} น.</span>
+                                <span class="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded font-semibold">${latest.time} ${latest.date ? '('+latest.date+')' : ''}</span>
                             </div>
                             <div class="grid grid-cols-2 gap-2 my-3 text-sm bg-gray-50 p-3 rounded-lg">
                                 <div>
@@ -453,7 +476,7 @@
             tbody.innerHTML = '';
 
             if (filteredReports.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-400">ไม่พบข้อมูลรายงานในวันที่เลือก</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-400">ไม่พบข้อมูลรายงานในช่วงวันที่เลือก</td></tr>`;
                 return;
             }
 
@@ -481,9 +504,15 @@
         }
 
         window.exportToCSV = function() {
-            const filterDate = document.getElementById('filterDate').value;
+            const startDate = document.getElementById('filterStartDate').value;
+            const endDate = document.getElementById('filterEndDate').value;
+
             const reportsArray = Object.keys(reportsData).map(key => ({ key: key, ...reportsData[key] }));
-            const filteredReports = filterDate ? reportsArray.filter(r => r.date === filterDate) : reportsArray;
+            const filteredReports = reportsArray.filter(r => {
+                if (startDate && r.date < startDate) return false;
+                if (endDate && r.date > endDate) return false;
+                return true;
+            });
 
             let csv = '\uFEFFเวลา,วันที่,คลังสินค้า,ผู้รายงาน,Request,Showup,Total,หมายเหตุ\n';
             filteredReports.forEach(r => {

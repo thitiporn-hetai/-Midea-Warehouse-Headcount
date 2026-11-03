@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warehouse Headcount Summary System</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Prompt', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <header class="bg-orange-600 text-white shadow-md">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center">
+            <div class="flex items-center space-x-3 mb-2 md:mb-0">
+                <i class="fa-solid fa-warehouse text-2xl text-yellow-300"></i>
+                <span class="text-xl font-bold tracking-wide">Warehouse Headcount</span>
+            </div>
+            <!-- Role Switcher -->
+            <div class="flex bg-orange-700 p-1 rounded-lg">
+                <button id="btnStaff" onclick="switchView('staff')" class="px-4 py-1.5 rounded-md text-sm font-medium transition bg-white text-orange-600 shadow">
+                    <i class="fa-solid fa-pen-to-square mr-1"></i> ฝ่ายกรอกข้อมูล
+                </button>
+                <button id="btnAdmin" onclick="switchView('admin')" class="px-4 py-1.5 rounded-md text-sm font-medium transition text-white hover:bg-orange-600">
+                    <i class="fa-solid fa-chart-pie mr-1"></i> แดชบอร์ดสรุปผล
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 md:p-6">
+
+        <!-- ================= STAFF VIEW ================= -->
+        <section id="staffView" class="max-w-2xl mx-auto bg-white rounded-2xl shadow-lg p-6 md:p-8 border border-orange-100">
+            <div class="border-b pb-4 mb-6 flex justify-between items-center">
+                <div>
+                    <h2 id="formTitle" class="text-2xl font-bold text-gray-800">ฟอร์มส่งรายงานกำลังพล</h2>
+                    <p id="formSubtitle" class="text-sm text-gray-500">กรอกข้อมูลประจำวันสำหรับคลังสินค้า</p>
+                </div>
+                <div id="editBadge" class="hidden">
+                    <span class="text-xs bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-full font-semibold flex items-center">
+                        <i class="fa-solid fa-pen-to-square mr-1"></i> กำลังแก้ไขข้อมูล
+                    </span>
+                </div>
+                <span id="currentLiveTime" class="text-xs bg-orange-100 text-orange-700 px-3 py-1.5 rounded-full font-semibold">กำลังซิงค์เวลา...</span>
+            </div>
+
+            <form id="attendanceForm" onsubmit="submitReport(event)" class="space-y-5">
+                <input type="hidden" id="editReportId" value="">
+
+                <!-- ผู้รายงาน -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">ผู้รายงาน (ชื่อ/รหัสพนักงาน)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fa-solid fa-user"></i></span>
+                        <input type="text" id="reporterName" required placeholder="เช่น Kate" class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- เลือกคลังสินค้า -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">เลือกคลังสินค้า</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fa-solid fa-warehouse"></i></span>
+                        <select id="warehouseSelect" required class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white">
+                            <option value="Lotus Finished">คลัง Lotus Finished</option>
+                            <option value="Lotus OEM">คลัง Lotus OEM</option>
+                            <option value="345">คลัง 345</option>
+                            <option value="TPT">คลัง TPT</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- วันที่และเวลา -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">วันที่</label>
+                        <input type="date" id="reportDate" required class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">เวลา (น.)</label>
+                        <input type="text" id="reportTime" required placeholder="เช่น 11:04" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- ตัวเลขกำลังพล: Request, Showup, Total -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl border">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Request (ต้องการ)</label>
+                        <input type="number" id="reqCount" min="0" required oninput="calculateTotal()" placeholder="0" class="w-full px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none font-bold text-center text-lg">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Showup (มาจริง)</label>
+                        <input type="number" id="showCount" min="0" required oninput="calculateTotal()" placeholder="0" class="w-full px-3 py-2 border rounded-lg bg-white focus:ring-2 focus:ring-orange-500 focus:outline-none font-bold text-center text-lg text-green-600">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-600 uppercase mb-1">Total (ผลต่าง/คงเหลือ)</label>
+                        <input type="text" id="totalCount" readonly placeholder="คำนวณอัติโนมัติ" class="w-full px-3 py-2 border rounded-lg bg-gray-200 text-center font-bold text-lg text-gray-700 cursor-not-allowed">
+                    </div>
+                </div>
+
+                <!-- หมายเหตุ -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">หมายเหตุ</label>
+                    <textarea id="remarkText" rows="3" placeholder="ระบุเหตุผล หรือรายละเอียดเพิ่มเติม (ถ้ามี)..." class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none"></textarea>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex space-x-3">
+                    <button type="submit" id="submitBtn" class="flex-grow bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-4 rounded-lg transition shadow-md flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span id="submitBtnText">ส่งรายงานกำลังพล</span>
+                    </button>
+                    <button type="button" id="cancelEditBtn" onclick="cancelEdit()" class="hidden bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-3 px-4 rounded-lg transition">
+                        ยกเลิก
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- ================= ADMIN DASHBOARD ================= -->
+        <section id="adminView" class="hidden space-y-6">
+            <!-- Filter & Controls -->
+            <div class="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row justify-between items-center gap-4">
+                <div class="flex items-center space-x-2 w-full md:w-auto">
+                    <label class="text-sm font-medium text-gray-600">กรองวันที่:</label>
+                    <input type="date" id="filterDate" onchange="renderAdminDashboard()" class="px-3 py-1.5 border rounded-lg text-sm">
+                </div>
+                <div class="flex space-x-3 w-full md:w-auto justify-end">
+                    <button onclick="exportToCSV()" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-1 shadow">
+                        <i class="fa-solid fa-file-excel"></i>
+                        <span>Export CSV</span>
+                    </button>
+                    <button onclick="clearAllData()" class="bg-red-100 hover:bg-red-200 text-red-600 px-3 py-2 rounded-lg text-sm font-medium transition flex items-center space-x-1">
+                        <i class="fa-solid fa-trash-can"></i>
+                        <span>ล้างข้อมูลทั้งหมด</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Cards Overview -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white p-5 rounded-xl shadow border-l-4 border-blue-500 flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase">Request ทั้งหมด</p>
+                        <h3 id="statTotalReq" class="text-3xl font-bold text-gray-800 mt-1">0</h3>
+                    </div>
+                    <div class="bg-blue-100 p-3 rounded-full text-blue-600"><i class="fa-solid fa-users text-xl"></i></div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow border-l-4 border-green-500 flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase">Showup ทั้งหมด</p>
+                        <h3 id="statTotalShow" class="text-3xl font-bold text-green-600 mt-1">0</h3>
+                    </div>
+                    <div class="bg-green-100 p-3 rounded-full text-green-600"><i class="fa-solid fa-user-check text-xl"></i></div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow border-l-4 border-orange-500 flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-semibold text-gray-400 uppercase">อัตราการเข้างานรวม</p>
+                        <h3 id="statPercentage" class="text-3xl font-bold text-orange-600 mt-1">0%</h3>
+                    </div>
+                    <div class="bg-orange-100 p-3 rounded-full text-orange-600"><i class="fa-solid fa-chart-line text-xl"></i></div>
+                </div>
+            </div>
+
+            <!-- Warehouse Breakdown Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="warehouseCardsContainer"></div>
+
+            <!-- Detailed Table Log -->
+            <div class="bg-white rounded-xl shadow overflow-hidden border">
+                <div class="p-4 bg-gray-50 border-b flex justify-between items-center">
+                    <h3 class="font-bold text-gray-800"><i class="fa-solid fa-table-list mr-2 text-orange-600"></i>ประวัติการส่งรายงานทั้งหมด</h3>
+                    <span id="recordCount" class="text-xs bg-gray-200 px-2.5 py-1 rounded-full font-semibold">0 รายการ</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100 text-xs font-bold text-gray-600 uppercase border-b">
+                                <th class="p-3">เวลา / วันที่</th>
+                                <th class="p-3">คลังสินค้า</th>
+                                <th class="p-3">ผู้รายงาน</th>
+                                <th class="p-3 text-center">Request</th>
+                                <th class="p-3 text-center">Showup</th>
+                                <th class="p-3 text-center">Total</th>
+                                <th class="p-3">หมายเหตุ</th>
+                                <th class="p-3 text-center">จัดการ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportTableBody" class="divide-y text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="text-center py-4 text-xs text-gray-400 border-t mt-auto">
+        Warehouse Headcount Automation System &copy; 2026
+    </footer>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-gray-900 text-white px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-3 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-green-400 text-lg"></i>
+        <span id="toastMessage" class="text-sm font-medium">บันทึกข้อมูลเรียบร้อยแล้ว</span>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        let reports = JSON.parse(localStorage.getItem('warehouse_reports')) || [];
+        const warehousesList = ["Lotus Finished", "Lotus OEM", "345", "TPT"];
+
+        window.onload = function() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('reportDate').value = today;
+            document.getElementById('filterDate').value = today;
+            
+            const now = new Date();
+            const timeString = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            document.getElementById('reportTime').value = timeString;
+            document.getElementById('currentLiveTime').innerText = `เวลาปัจจุบัน: ${timeString} น.`;
+
+            renderAdminDashboard();
+        };
+
+        function switchView(view) {
+            const staffView = document.getElementById('staffView');
+            const adminView = document.getElementById('adminView');
+            const btnStaff = document.getElementById('btnStaff');
+            const btnAdmin = document.getElementById('btnAdmin');
+
+            if (view === 'staff') {
+                staffView.classList.remove('hidden');
+                adminView.classList.add('hidden');
+                btnStaff.className = "px-4 py-1.5 rounded-md text-sm font-medium transition bg-white text-orange-600 shadow";
+                btnAdmin.className = "px-4 py-1.5 rounded-md text-sm font-medium transition text-white hover:bg-orange-600";
+            } else {
+                staffView.classList.add('hidden');
+                adminView.classList.remove('hidden');
+                btnAdmin.className = "px-4 py-1.5 rounded-md text-sm font-medium transition bg-white text-orange-600 shadow";
+                btnStaff.className = "px-4 py-1.5 rounded-md text-sm font-medium transition text-white hover:bg-orange-600";
+                renderAdminDashboard();
+            }
+        }
+
+        function calculateTotal() {
+            const req = parseInt(document.getElementById('reqCount').value) || 0;
+            const show = parseInt(document.getElementById('showCount').value) || 0;
+            const diff = show - req;
+            const totalField = document.getElementById('totalCount');
+            totalField.value = diff >= 0 ? `+${diff}` : `${diff}`;
+        }
+
+        function submitReport(e) {
+            e.preventDefault();
+            const editId = document.getElementById('editReportId').value;
+            
+            const reqVal = parseInt(document.getElementById('reqCount').value) || 0;
+            const showVal = parseInt(document.getElementById('showCount').value) || 0;
+
+            if (editId) {
+                const index = reports.findIndex(r => r.id == editId);
+                if (index !== -1) {
+                    reports[index] = {
+                        id: Number(editId),
+                        reporter: document.getElementById('reporterName').value,
+                        warehouse: document.getElementById('warehouseSelect').value,
+                        date: document.getElementById('reportDate').value,
+                        time: document.getElementById('reportTime').value,
+                        req: reqVal,
+                        show: showVal,
+                        total: showVal - reqVal,
+                        remark: document.getElementById('remarkText').value || '-'
+                    };
+                    showToast("อัปเดตข้อมูลสำเร็จ!", "success");
+                }
+                cancelEdit();
+            } else {
+                const newReport = {
+                    id: Date.now(),
+                    reporter: document.getElementById('reporterName').value,
+                    warehouse: document.getElementById('warehouseSelect').value,
+                    date: document.getElementById('reportDate').value,
+                    time: document.getElementById('reportTime').value,
+                    req: reqVal,
+                    show: showVal,
+                    total: showVal - reqVal,
+                    remark: document.getElementById('remarkText').value || '-'
+                };
+                reports.unshift(newReport);
+                showToast("ส่งรายงานกำลังพลสำเร็จ!", "success");
+                document.getElementById('attendanceForm').reset();
+                
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('reportDate').value = today;
+                const now = new Date();
+                document.getElementById('reportTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+            }
+
+            localStorage.setItem('warehouse_reports', JSON.stringify(reports));
+            calculateTotal();
+        }
+
+        function editReport(id) {
+            const report = reports.find(r => r.id == id);
+            if (!report) return;
+
+            switchView('staff');
+
+            document.getElementById('editReportId').value = report.id;
+            document.getElementById('reporterName').value = report.reporter;
+            document.getElementById('warehouseSelect').value = report.warehouse;
+            document.getElementById('reportDate').value = report.date;
+            document.getElementById('reportTime').value = report.time;
+            document.getElementById('reqCount').value = report.req;
+            document.getElementById('showCount').value = report.show;
+            document.getElementById('remarkText').value = report.remark;
+            calculateTotal();
+
+            document.getElementById('formTitle').innerText = "แก้ไขรายงานกำลังพล";
+            document.getElementById('formSubtitle').innerText = `กำลังแก้ไขรายการของคลัง ${report.warehouse}`;
+            document.getElementById('editBadge').classList.remove('hidden');
+            document.getElementById('currentLiveTime').classList.add('hidden');
+            document.getElementById('submitBtnText').innerText = "บันทึกการแก้ไข";
+            document.getElementById('cancelEditBtn').classList.remove('hidden');
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function cancelEdit() {
+            document.getElementById('attendanceForm').reset();
+            document.getElementById('editReportId').value = '';
+            document.getElementById('formTitle').innerText = "ฟอร์มส่งรายงานกำลังพล";
+            document.getElementById('formSubtitle').innerText = "กรอกข้อมูลประจำวันสำหรับคลังสินค้า";
+            document.getElementById('editBadge').classList.add('hidden');
+            document.getElementById('currentLiveTime').classList.remove('hidden');
+            document.getElementById('submitBtnText').innerText = "ส่งรายงานกำลังพล";
+            document.getElementById('cancelEditBtn').classList.add('hidden');
+
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('reportDate').value = today;
+            const now = new Date();
+            document.getElementById('reportTime').value = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+        }
+
+        function deleteReport(id) {
+            if (confirm("คุณต้องการลบรายงานนี้ใช่หรือไม่?")) {
+                reports = reports.filter(r => r.id !== id);
+                localStorage.setItem('warehouse_reports', JSON.stringify(reports));
+                renderAdminDashboard();
+                showToast("ลบรายงานเรียบร้อยแล้ว", "success");
+            }
+        }
+
+        function clearAllData() {
+            if (confirm("⚠️ คำเตือน: คุณต้องการลบประวัติรายงานทั้งหมดใช่หรือไม่?")) {
+                reports = [];
+                localStorage.removeItem('warehouse_reports');
+                renderAdminDashboard();
+                showToast("ล้างข้อมูลทั้งหมดเรียบร้อย", "success");
+            }
+        }
+
+        function renderAdminDashboard() {
+            const filterDate = document.getElementById('filterDate').value;
+            const filteredReports = filterDate ? reports.filter(r => r.date === filterDate) : reports;
+
+            let totalReq = 0;
+            let totalShow = 0;
+
+            filteredReports.forEach(r => {
+                totalReq += r.req;
+                totalShow += r.show;
+            });
+
+            const percentage = totalReq > 0 ? ((totalShow / totalReq) * 100).toFixed(1) : 0;
+
+            document.getElementById('statTotalReq').innerText = totalReq;
+            document.getElementById('statTotalShow').innerText = totalShow;
+            document.getElementById('statPercentage').innerText = `${percentage}%`;
+            document.getElementById('recordCount').innerText = `${filteredReports.length} รายการ`;
+
+            const container = document.getElementById('warehouseCardsContainer');
+            container.innerHTML = '';
+
+            warehousesList.forEach(wh => {
+                const whReports = filteredReports.filter(r => r.warehouse === wh);
+                const latest = whReports.length > 0 ? whReports[0] : { req: 0, show: 0, total: 0, time: 'ยังไม่มีข้อมูล', remark: '-' };
+                const whPercentage = latest.req > 0 ? ((latest.show / latest.req) * 100).toFixed(0) : 0;
+
+                container.innerHTML += `
+                    <div class="bg-white p-5 rounded-xl shadow border border-gray-100 flex flex-col justify-between">
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-gray-800 text-base">${wh}</h4>
+                                <span class="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded font-semibold">${latest.time} น.</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 my-3 text-sm bg-gray-50 p-3 rounded-lg">
+                                <div>
+                                    <span class="text-gray-400 text-xs block">Request</span>
+                                    <span class="font-bold text-gray-700 text-lg">${latest.req} คน</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-400 text-xs block">Showup</span>
+                                    <span class="font-bold text-green-600 text-lg">${latest.show} คน</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-xs text-gray-500 flex justify-between items-center mt-2 pt-2 border-t">
+                            <span class="truncate max-w-[140px]">หมายเหตุ: ${latest.remark}</span>
+                            <span class="font-bold text-orange-600">${whPercentage}%</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const tbody = document.getElementById('reportTableBody');
+            tbody.innerHTML = '';
+
+            if (filteredReports.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-400">ไม่พบข้อมูลรายงานในวันที่เลือก</td></tr>`;
+                return;
+            }
+
+            filteredReports.forEach(r => {
+                const totalFormatted = r.total >= 0 ? `+${r.total}` : `${r.total}`;
+                const totalColor = r.total >= 0 ? 'text-green-600' : 'text-red-500';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-3 font-medium text-gray-700">${r.time} <span class="text-xs text-gray-400 block">${r.date}</span></td>
+                        <td class="p-3 font-semibold text-orange-600">${r.warehouse}</td>
+                        <td class="p-3 text-gray-600">${r.reporter}</td>
+                        <td class="p-3 text-center font-bold">${r.req}</td>
+                        <td class="p-3 text-center font-bold text-green-600">${r.show}</td>
+                        <td class="p-3 text-center font-bold ${totalColor}">${totalFormatted}</td>
+                        <td class="p-3 text-gray-500 text-xs max-w-xs truncate">${r.remark}</td>
+                        <td class="p-3 text-center space-x-2">
+                            <button onclick="editReport(${r.id})" class="text-blue-400 hover:text-blue-600 p-1 transition" title="แก้ไข"><i class="fa-solid fa-pen-to-square"></i></button>
+                            <button onclick="deleteReport(${r.id})" class="text-red-400 hover:text-red-600 p-1 transition" title="ลบ"><i class="fa-solid fa-trash"></i></button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function exportToCSV() {
+            let csv = '\uFEFFเวลา,วันที่,คลังสินค้า,ผู้รายงาน,Request,Showup,Total,หมายเหตุ\n';
+            reports.forEach(r => {
+                csv += `"${r.time}","${r.date}","${r.warehouse}","${r.reporter}",${r.req},${r.show},${r.total},"${r.remark}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Warehouse_Headcount_Report_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            showToast("ดาวน์โหลดไฟล์ CSV สำเร็จ!", "success");
+        }
+
+        function showToast(message, type) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.innerText = message;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+    </script>
+</body>
+</html>

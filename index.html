@@ -43,7 +43,7 @@
             <div class="border-b pb-4 mb-6 flex justify-between items-center">
                 <div>
                     <h2 id="formTitle" class="text-2xl font-bold text-gray-800">ฟอร์มส่งรายงานกำลังพล</h2>
-                    <p id="formSubtitle" class="text-sm text-gray-500">กรอกข้อมูลประจำวันสำหรับคลังสินค้า</p>
+                    <p id="formSubtitle" class="text-sm text-gray-500">กรอกข้อมูลประจำวันและกะการทำงานสำหรับคลังสินค้า</p>
                 </div>
                 <div id="editBadge" class="hidden">
                     <span class="text-xs bg-yellow-100 text-yellow-800 px-3 py-1.5 rounded-full font-semibold flex items-center">
@@ -65,17 +65,29 @@
                     </div>
                 </div>
 
-                <!-- เลือกคลังสินค้า -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">เลือกคลังสินค้า</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fa-solid fa-warehouse"></i></span>
-                        <select id="warehouseSelect" required class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white">
-                            <option value="Lotus Finished">คลัง Lotus Finished</option>
-                            <option value="Lotus OEM">คลัง Lotus OEM</option>
-                            <option value="345">คลัง 345</option>
-                            <option value="TPT">คลัง TPT</option>
-                        </select>
+                <!-- เลือกคลังสินค้า และ กะการทำงาน -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">เลือกคลังสินค้า</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fa-solid fa-warehouse"></i></span>
+                            <select id="warehouseSelect" required class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white">
+                                <option value="Lotus Finished">คลัง Lotus Finished</option>
+                                <option value="Lotus OEM">คลัง Lotus OEM</option>
+                                <option value="345">คลัง 345</option>
+                                <option value="TPT">คลัง TPT</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">กะการทำงาน (Shift)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400"><i class="fa-solid fa-clock"></i></span>
+                            <select id="shiftSelect" required class="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-orange-500 focus:outline-none bg-white">
+                                <option value="กะเช้า">กะเช้า (Morning)</option>
+                                <option value="กะดึก">กะดึก (Night)</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
@@ -191,6 +203,7 @@
                             <tr class="bg-gray-100 text-xs font-bold text-gray-600 uppercase border-b">
                                 <th class="p-3">เวลา / วันที่</th>
                                 <th class="p-3">คลังสินค้า</th>
+                                <th class="p-3">กะ</th>
                                 <th class="p-3">ผู้รายงาน</th>
                                 <th class="p-3 text-center">Request</th>
                                 <th class="p-3 text-center">Showup</th>
@@ -299,6 +312,7 @@
             const reportData = {
                 reporter: document.getElementById('reporterName').value,
                 warehouse: document.getElementById('warehouseSelect').value,
+                shift: document.getElementById('shiftSelect').value,
                 date: document.getElementById('reportDate').value,
                 time: document.getElementById('reportTime').value,
                 req: reqVal,
@@ -341,6 +355,7 @@
             document.getElementById('editReportKey').value = key;
             document.getElementById('reporterName').value = report.reporter;
             document.getElementById('warehouseSelect').value = report.warehouse;
+            document.getElementById('shiftSelect').value = report.shift || 'กะเช้า';
             document.getElementById('reportDate').value = report.date;
             document.getElementById('reportTime').value = report.time;
             document.getElementById('reqCount').value = report.req;
@@ -349,7 +364,7 @@
             calculateTotal();
 
             document.getElementById('formTitle').innerText = "แก้ไขรายงานกำลังพล";
-            document.getElementById('formSubtitle').innerText = `กำลังแก้ไขรายการของคลัง ${report.warehouse}`;
+            document.getElementById('formSubtitle').innerText = `กำลังแก้ไขรายการของคลัง ${report.warehouse} (${report.shift || 'กะเช้า'})`;
             document.getElementById('editBadge').classList.remove('hidden');
             document.getElementById('currentLiveTime').classList.add('hidden');
             document.getElementById('submitBtnText').innerText = "บันทึกการแก้ไข";
@@ -362,7 +377,7 @@
             document.getElementById('attendanceForm').reset();
             document.getElementById('editReportKey').value = '';
             document.getElementById('formTitle').innerText = "ฟอร์มส่งรายงานกำลังพล";
-            document.getElementById('formSubtitle').innerText = "กรอกข้อมูลประจำวันสำหรับคลังสินค้า";
+            document.getElementById('formSubtitle').innerText = "กรอกข้อมูลประจำวันและกะการทำงานสำหรับคลังสินค้า";
             document.getElementById('editBadge').classList.add('hidden');
             document.getElementById('currentLiveTime').classList.remove('hidden');
             document.getElementById('submitBtnText').innerText = "ส่งรายงานกำลังพล";
@@ -426,17 +441,18 @@
 
             warehousesList.forEach(wh => {
                 const whReports = filteredReports.filter(r => r.warehouse === wh);
-                const latest = whReports.length > 0 ? whReports[0] : { req: 0, show: 0, total: 0, time: 'ยังไม่มีข้อมูล', date: '', remark: '-' };
+                const latest = whReports.length > 0 ? whReports[0] : { req: 0, show: 0, total: 0, time: 'ยังไม่มีข้อมูล', shift: '-', date: '', remark: '-' };
                 const whPercentage = latest.req > 0 ? ((latest.show / latest.req) * 100).toFixed(0) : 0;
 
                 container.innerHTML += `
                     <div class="bg-white p-5 rounded-xl shadow border border-gray-100 flex flex-col justify-between">
                         <div>
-                            <div class="flex justify-between items-center mb-2">
+                            <div class="flex justify-between items-center mb-1">
                                 <h4 class="font-bold text-gray-800 text-base">${wh}</h4>
-                                <span class="text-xs bg-orange-50 text-orange-600 px-2 py-0.5 rounded font-semibold">${latest.time} ${latest.date ? '('+latest.date+')' : ''}</span>
+                                <span class="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded font-bold">${latest.shift || 'กะเช้า'}</span>
                             </div>
-                            <div class="grid grid-cols-2 gap-2 my-3 text-sm bg-gray-50 p-3 rounded-lg">
+                            <div class="text-xs text-gray-400 mb-2">${latest.time} ${latest.date ? '('+latest.date+')' : ''}</div>
+                            <div class="grid grid-cols-2 gap-2 my-2 text-sm bg-gray-50 p-3 rounded-lg">
                                 <div>
                                     <span class="text-gray-400 text-xs block">Request</span>
                                     <span class="font-bold text-gray-700 text-lg">${latest.req} คน</span>
@@ -459,7 +475,7 @@
             tbody.innerHTML = '';
 
             if (filteredReports.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="text-center py-6 text-gray-400">ไม่พบข้อมูลรายงานในช่วงวันที่เลือก</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="9" class="text-center py-6 text-gray-400">ไม่พบข้อมูลรายงานในช่วงวันที่เลือก</td></tr>`;
                 return;
             }
 
@@ -472,6 +488,7 @@
                     <tr class="hover:bg-gray-50 transition">
                         <td class="p-3 font-medium text-gray-700">${r.time} <span class="text-xs text-gray-400 block">${r.date}</span></td>
                         <td class="p-3 font-semibold text-orange-600">${r.warehouse}</td>
+                        <td class="p-3"><span class="text-xs bg-orange-50 text-orange-700 px-2.5 py-1 rounded-full font-semibold border border-orange-200">${r.shift || 'กะเช้า'}</span></td>
                         <td class="p-3 text-gray-600">${r.reporter}</td>
                         <td class="p-3 text-center font-bold">${r.req}</td>
                         <td class="p-3 text-center font-bold text-green-600">${r.show}</td>
@@ -497,9 +514,9 @@
                 return true;
             });
 
-            let csv = '\uFEFFเวลา,วันที่,คลังสินค้า,ผู้รายงาน,Request,Showup,Total,หมายเหตุ\n';
+            let csv = '\uFEFFเวลา,วันที่,คลังสินค้า,กะการทำงาน,ผู้รายงาน,Request,Showup,Total,หมายเหตุ\n';
             filteredReports.forEach(r => {
-                csv += `"${r.time}","${r.date}","${r.warehouse}","${r.reporter}",${r.req},${r.show},${r.total},"${r.remark}"\n`;
+                csv += `"${r.time}","${r.date}","${r.warehouse}","${r.shift || 'กะเช้า'}","${r.reporter}",${r.req},${r.show},${r.total},"${r.remark}"\n`;
             });
 
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
